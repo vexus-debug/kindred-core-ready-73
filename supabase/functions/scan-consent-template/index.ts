@@ -7,8 +7,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const XAI_URL = "https://api.x.ai/v1/chat/completions";
-const VISION_MODEL = "grok-2-vision-1212";
+const CEREBRAS_URL = "https://api.cerebras.ai/v1/chat/completions";
+const VISION_MODEL = "qwen-3.8-27b";
 
 const PROMPT = `You are digitising a clinic consent form so it can be reused as a template.
 Read the document image and return STRICT JSON only, no markdown fences, with this shape:
@@ -21,9 +21,9 @@ serve(async (req) => {
   }
 
   try {
-    const XAI_API_KEY = Deno.env.get("XAI_API_KEY");
-    if (!XAI_API_KEY) {
-      return new Response(JSON.stringify({ error: "XAI_API_KEY is not configured." }), {
+    const CEREBRAS_API_KEY = Deno.env.get("CEREBRAS_API_KEY");
+    if (!CEREBRAS_API_KEY) {
+      return new Response(JSON.stringify({ error: "CEREBRAS_API_KEY is not configured." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -64,11 +64,11 @@ serve(async (req) => {
         ]
       : [{ type: "text", text: `${PROMPT}\n\nDocument text:\n${text}` }];
 
-    const aiRes = await fetch(XAI_URL, {
+    const aiRes = await fetch(CEREBRAS_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${XAI_API_KEY}`,
+        Authorization: `Bearer ${CEREBRAS_API_KEY}`,
       },
       body: JSON.stringify({
         model: VISION_MODEL,
