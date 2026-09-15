@@ -2405,9 +2405,9 @@ serve(async (req) => {
   try {
     const { messages, context, orgId } = await req.json();
 
-    const XAI_API_KEY = Deno.env.get("XAI_API_KEY");
-    if (!XAI_API_KEY) {
-      return new Response(JSON.stringify({ error: "XAI_API_KEY is not configured." }), {
+    const CEREBRAS_API_KEY = Deno.env.get("CEREBRAS_API_KEY");
+    if (!CEREBRAS_API_KEY) {
+      return new Response(JSON.stringify({ error: "CEREBRAS_API_KEY is not configured." }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -2446,14 +2446,18 @@ serve(async (req) => {
       }),
     ];
 
-    const XAI_MODEL = "grok-4-1-fast-reasoning";
-    const XAI_URL = "https://api.x.ai/v1/chat/completions";
+    const CEREBRAS_URL = "https://api.cerebras.ai/v1/chat/completions";
+    // Cerebras serves image input on qwen-3.8-27b; text + tool calling runs on gpt-oss-120b.
+    const hasImages = openaiMessages.some(
+      (m: any) => Array.isArray(m.content) && m.content.some((c: any) => c?.type === "image_url"),
+    );
+    const CEREBRAS_MODEL = hasImages ? "qwen-3.8-27b" : "gpt-oss-120b";
 
     let rounds = 8;
 
     while (rounds-- > 0) {
       const body = {
-        model: XAI_MODEL,
+        model: CEREBRAS_MODEL,
         messages: openaiMessages,
         tools: openaiTools,
         temperature: 0.7,
@@ -2462,10 +2466,10 @@ serve(async (req) => {
 
       let result: any;
       try {
-        const response = await fetch(XAI_URL, {
+        const response = await fetch(CEREBRAS_URL, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${XAI_API_KEY}`,
+            Authorization: `Bearer ${CEREBRAS_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(body),
@@ -2473,20 +2477,20 @@ serve(async (req) => {
 
         if (!response.ok) {
           const errText = await response.text();
-          console.error(`xAI API error [${response.status}]: ${errText}`);
+          console.error(`Cerebras API error [${response.status}]: ${errText}`);
           if (response.status === 429) {
-            return new Response(JSON.stringify({ error: "Rate limited by xAI. Please try again shortly." }), {
+            return new Response(JSON.stringify({ error: "Rate limited by Cerebras. Please try again shortly." }), {
               status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
-          return new Response(JSON.stringify({ error: `xAI API error: ${response.status}` }), {
+          return new Response(JSON.stringify({ error: `Cerebras API error: ${response.status} ${errText}` }), {
             status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
 
         result = await response.json();
       } catch (e) {
-        console.error("xAI API call failed:", e);
+        console.error("Cerebras API call failed:", e);
         return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "AI service unavailable" }), {
           status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
